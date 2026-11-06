@@ -19,10 +19,13 @@ usage() {
     echo "  -h, --help    显示本帮助"
     echo ""
     echo "行为:"
-    echo "  1. 写 CLAUDE.md（若已存在则跳过，不覆盖）"
-    echo "  2. 写 DECISIONS.md（若已存在则跳过）"
-    echo "  3. 写 docs/spec.md、docs/MISTAKE-LOG.md、docs/DoD-验收清单.md、docs/每日三问.md"
-    echo "  4. 复制 new-project.sh 到 docs/"
+    echo "  1. 写 CLAUDE.md（规范正文，WorkBuddy / Claude Code 读）"
+    echo "  2. 写 AGENTS.md（入口引导页，Codex 读）"
+    echo "  3. 写 DECISIONS.md（拍板即冻结的决策账本）"
+    echo "  4. 写 docs/spec.md、docs/MISTAKE-LOG.md、docs/DoD-验收清单.md、docs/每日三问.md"
+    echo "  5. 复制 new-project.sh 到 docs/"
+    echo ""
+    echo "已存在的文件一律跳过，不覆盖。"
 }
 
 while [ $# -gt 0 ]; do
@@ -82,6 +85,7 @@ install_file() {
 }
 
 install_file "$TPL/CLAUDE.md.template"      "$TARGET/CLAUDE.md"
+install_file "$TPL/AGENTS.md.template"      "$TARGET/AGENTS.md"
 install_file "$TPL/DECISIONS.md.example"    "$TARGET/DECISIONS.md"
 install_file "$TPL/spec.md.template"        "$TARGET/docs/spec.md"
 install_file "$TPL/MISTAKE-LOG.md.template" "$TARGET/docs/MISTAKE-LOG.md"
