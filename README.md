@@ -12,7 +12,7 @@
 |---|---|---|
 | 公司电脑，装不了东西 / 不能连网 | **种子提示词** | 复制 `core/种子提示词.txt` 全文，粘给任何 AI 助手，作为第一轮对话 |
 | 有 git，想长期维护 | **装模板** | `git clone` 后 `sh install.sh <你的项目路径>` |
-| 用 WorkBuddy | **skill** | 已做成技能 `ai-collab-playbook`，提"开新项目/协作规范"会自动加载 |
+| 用 WorkBuddy | **skill** | `sh install.sh --with-skill <项目>` 会同时装到 `~/.workbuddy/skills/ai-collab-playbook`；也可以手动拷贝 `skill/` |
 
 保底层是纯文本，不依赖任何工具——这是刻意设计的：公司环境的第一约束不是工具选型，是能不能装、能不能连网。
 
@@ -35,7 +35,9 @@ templates/
   new-project.sh       worktree 起手脚本（带 --dry-run）
 project-specific/
   interview-duck.md    通用规则在一个真实项目里的落地形态（示例，别照搬）
-install.sh             铺模板到目标项目，不覆盖已存在文件
+skill/
+  SKILL.md             WorkBuddy 技能入口（含 references/ 与 assets/templates/）
+install.sh             铺模板到目标项目，不覆盖已存在文件；--with-skill 额外装 skill
 ```
 
 ---
