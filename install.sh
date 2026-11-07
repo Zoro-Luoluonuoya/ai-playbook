@@ -95,6 +95,16 @@ install_file "$TPL/spec.md.template"        "$TARGET/docs/spec.md"
 install_file "$TPL/MISTAKE-LOG.md.template" "$TARGET/docs/MISTAKE-LOG.md"
 install_file "$TPL/DoD-验收清单.md"           "$TARGET/docs/DoD-验收清单.md"
 install_file "$TPL/每日三问.md"                "$TARGET/docs/每日三问.md"
+# 防御：模板脚本在 Windows 上检出时可能是 CRLF，直接 cp 会给用户一个换了机器就跑不了的脚本。
+normalize_lf() {
+    f=$1
+    [ -f "$f" ] || return 0
+    if grep -qU $'\r' "$f" 2>/dev/null; then
+        tr -d '\r' < "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+        echo "  修正 CRLF -> LF: $f"
+    fi
+}
+
 install_file "$TPL/new-project.sh"          "$TARGET/docs/new-project.sh"
 
 # 开张基线：不铺这层，新项目每个都要手工补（实测：陌生人装完仍缺 3 样，重复劳动约 60%）
@@ -103,9 +113,15 @@ if [ "$WITH_BASELINE" = 1 ]; then
     install_file "$TPL/verify.sh.template"     "$TARGET/scripts/verify.sh"
     # 规则正文：AGENTS.md 指向 .claude/rules/，不铺这里就会"指针悬空"
     install_file "$HERE/core/规则-30条.md"      "$TARGET/.claude/rules/通用规则-30条.md"
-    if [ "$DRY" != 1 ] && [ -f "$TARGET/scripts/verify.sh" ]; then
+    if [ "$DRY" != 1 ]; then
+        normalize_lf "$TARGET/scripts/verify.sh"
         chmod +x "$TARGET/scripts/verify.sh" 2>/dev/null || true
     fi
+fi
+
+# new-project.sh 同样要保证 LF，否则在 Linux/Mac 上 shebang 会失效
+if [ "$DRY" != 1 ]; then
+    normalize_lf "$TARGET/docs/new-project.sh"
 fi
 
 echo ""

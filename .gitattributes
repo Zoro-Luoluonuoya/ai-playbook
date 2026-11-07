@@ -1,5 +1,8 @@
 # 统一换行符：shell 脚本与纯文本强制 LF，否则拷到 Mac/Linux 会报 bad interpreter: /bin/sh^M
 * text=auto
 *.sh text eol=lf
+# 模板脚本的文件名是 xxx.sh.template，后缀不匹配 *.sh，必须单独写规则
+*.sh.template text eol=lf
+*.template text eol=lf
 *.txt text eol=lf
 *.md text=auto
