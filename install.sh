@@ -6,6 +6,7 @@ set -eu
 
 DRY=0
 WITH_SKILL=0
+WITH_BASELINE=1
 TARGET=""
 
 usage() {
@@ -16,6 +17,7 @@ usage() {
     echo "选项:"
     echo "  --dry-run     只打印将要写入的路径，不落盘"
     echo "  --with-skill  同时把 skill 装到 \$HOME/.workbuddy/skills/ai-collab-playbook"
+    echo "  --no-baseline 不装开张基线（.gitattributes 与 scripts/verify.sh）"
     echo "  -h, --help    显示本帮助"
     echo ""
     echo "行为:"
@@ -24,6 +26,7 @@ usage() {
     echo "  3. 写 DECISIONS.md（拍板即冻结的决策账本）"
     echo "  4. 写 docs/spec.md、docs/MISTAKE-LOG.md、docs/DoD-验收清单.md、docs/每日三问.md"
     echo "  5. 复制 new-project.sh 到 docs/"
+    echo "  6. 开张基线：.gitattributes + scripts/verify.sh（可用 --no-baseline 关）"
     echo ""
     echo "已存在的文件一律跳过，不覆盖。"
 }
@@ -32,6 +35,7 @@ while [ $# -gt 0 ]; do
     case "$1" in
         --dry-run) DRY=1; shift ;;
         --with-skill) WITH_SKILL=1; shift ;;
+        --no-baseline) WITH_BASELINE=0; shift ;;
         -h|--help) usage; exit 0 ;;
         -*) echo "未知选项: $1" >&2; usage >&2; exit 2 ;;
         *) TARGET="$1"; shift ;;
@@ -92,6 +96,15 @@ install_file "$TPL/MISTAKE-LOG.md.template" "$TARGET/docs/MISTAKE-LOG.md"
 install_file "$TPL/DoD-验收清单.md"           "$TARGET/docs/DoD-验收清单.md"
 install_file "$TPL/每日三问.md"                "$TARGET/docs/每日三问.md"
 install_file "$TPL/new-project.sh"          "$TARGET/docs/new-project.sh"
+
+# 开张基线：不铺这层，新项目每个都要手工补（实测：陌生人装完仍缺 3 样，重复劳动约 60%）
+if [ "$WITH_BASELINE" = 1 ]; then
+    install_file "$TPL/gitattributes.template" "$TARGET/.gitattributes"
+    install_file "$TPL/verify.sh.template"     "$TARGET/scripts/verify.sh"
+    if [ "$DRY" != 1 ] && [ -f "$TARGET/scripts/verify.sh" ]; then
+        chmod +x "$TARGET/scripts/verify.sh" 2>/dev/null || true
+    fi
+fi
 
 echo ""
 echo "完成：写入 $ok 个，跳过 $skip 个（已存在）。"

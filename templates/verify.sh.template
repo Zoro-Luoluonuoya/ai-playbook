@@ -1,0 +1,76 @@
+#!/bin/sh
+# 基础自检骨架 —— 只做与技术栈无关的检查，保证"开张基线"立得住。
+#
+# 它不验证业务，只验证「项目骨架完整」。等你的项目长出真验证（单测/冒烟/真机），
+# 把这里的检查逐步替换成真断言，或者把它当 pre-commit 的第一道闸。
+#
+# 用法：
+#   sh scripts/verify.sh             # 正常检查
+#   sh scripts/verify.sh --selftest  # 反向自测：故意破坏一处，确认检查真的会红
+
+set -u
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+fail=0
+
+check() {
+    name=$1
+    shift
+    if "$@" >/dev/null 2>&1; then
+        echo "  ok    $name"
+    else
+        echo "  FAIL  $name"
+        fail=$((fail + 1))
+    fi
+}
+
+echo "[verify] $ROOT"
+
+# --- 骨架完整性 ---
+check "AGENTS.md 存在"              test -f "$ROOT/AGENTS.md"
+check "CLAUDE.md 存在"              test -f "$ROOT/CLAUDE.md"
+check "DECISIONS.md 存在"           test -f "$ROOT/DECISIONS.md"
+check "docs/spec.md 存在"           test -f "$ROOT/docs/spec.md"
+check "docs/MISTAKE-LOG.md 存在"    test -f "$ROOT/docs/MISTAKE-LOG.md"
+
+# --- 内容有效性（防"文件在但是空的"）---
+if [ -f "$ROOT/DECISIONS.md" ]; then
+    check "DECISIONS 至少 1 条真实决策" sh -c "grep -qE '^## D-00[0-9]' '$ROOT/DECISIONS.md'"
+fi
+if [ -f "$ROOT/docs/spec.md" ]; then
+    check "spec 有「明确不做」段" sh -c "grep -q '明确不做' '$ROOT/docs/spec.md'"
+fi
+
+# --- 技术栈相关（有才查，没有不报错）---
+if [ -f "$ROOT/package.json" ]; then
+    check "package.json 可解析" node -e "JSON.parse(require('fs').readFileSync('$ROOT/package.json','utf8'))"
+fi
+if [ -f "$ROOT/.gitattributes" ]; then
+    check ".gitattributes 强制 .sh 用 LF" sh -c "grep -q '\*.sh text eol=lf' '$ROOT/.gitattributes'"
+fi
+
+# --- 反向自测：证明上面这些检查真的会红 ---
+if [ "${1:-}" = "--selftest" ]; then
+    echo ""
+    echo "[selftest] 临时移走 docs/spec.md，确认检查会红……"
+    TARGET="$ROOT/docs/spec.md"
+    if [ ! -f "$TARGET" ]; then
+        echo "  SELFTEST SKIP: docs/spec.md 本来就不在，无法自测"
+    else
+        mv "$TARGET" "$TARGET.selftest"
+        red=$(sh "$0" 2>&1 | grep -c "FAIL" || true)
+        mv "$TARGET.selftest" "$TARGET"
+        if [ "$red" -gt 0 ]; then
+            echo "  SELFTEST OK: 破坏后会红（$red 项失败）"
+        else
+            echo "  SELFTEST FAIL: 移走文件后仍然全绿，说明这些检查没有区分力"
+            exit 1
+        fi
+    fi
+fi
+
+echo ""
+if [ "$fail" -ne 0 ]; then
+    echo "[verify] $fail 项失败。修完再提交。"
+    exit 1
+fi
+echo "[verify] 全部通过"

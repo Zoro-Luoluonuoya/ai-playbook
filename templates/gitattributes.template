@@ -1,0 +1,6 @@
+# 统一换行符：shell 脚本与纯文本强制 LF，否则拷到 Mac/Linux 会报 bad interpreter: /bin/sh^M
+# 这条坑我们踩过：Git 默认按 CRLF 存 .sh，换机器就报错。
+* text=auto
+*.sh text eol=lf
+*.txt text eol=lf
+*.md text=auto
