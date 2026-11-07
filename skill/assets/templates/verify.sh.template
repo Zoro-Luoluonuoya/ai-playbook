@@ -1,0 +1,144 @@
+#!/bin/sh
+# 基础自检骨架 —— 只做与技术栈无关的检查，保证"开张基线"立得住。
+#
+# 设计原则（踩过两次坑）：
+#   1. `grep '明确不做'` 会命中模板标题本身 → 改成数列表项。
+#   2. 数列表项会命中 `- <占位>` 这种带引导弹占位 → 改成排除含尖括号的行。
+#   3. `grep '^## D-00'` 会命中代码块里的示例 → 改成用 awk 跳过 ``` 块。
+# 假绿比不检查更糟，因为它让你以为验证过了。
+#
+# 用法：
+#   sh scripts/verify.sh             # 正常检查
+#   sh scripts/verify.sh --selftest  # 反向自测：验证检查函数本身不会被占位骗到
+
+set -u
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+fail=0
+
+check() {
+    name=$1
+    shift
+    if "$@" >/dev/null 2>&1; then
+        echo "  ok    $name"
+    else
+        echo "  FAIL  $name"
+        fail=$((fail + 1))
+    fi
+}
+
+# 数「某个标题下」的真实列表项：
+#   - 跳过 ``` 代码块（示例不算内容）
+#   - 只数 - / * / 1. 开头且有实际文字的
+#   - 排除含 < > 的行（模板占位符的特征）
+count_items() {
+    awk -v pat="$2" '
+        /^```/ { in_code = !in_code; next }
+        in_code { next }
+        /^##+ / { in_sec = ($0 ~ pat); next }
+        in_sec && /^[[:space:]]*([-*]|[0-9]+\.)[[:space:]]+[^[:space:]]/ && !/</ { n++ }
+        END { print n + 0 }
+    ' "$1"
+}
+
+# 数 DECISIONS 里的真实决策（非占位、非代码块示例）
+count_decisions() {
+    awk '
+        /^```/ { in_code = !in_code; next }
+        in_code { next }
+        /^## D-00[0-9]/ && !/</ { n++ }
+        END { print n + 0 }
+    ' "$1"
+}
+
+echo "[verify] $ROOT"
+
+# --- 骨架完整性 ---
+check "AGENTS.md 存在"              test -f "$ROOT/AGENTS.md"
+check "CLAUDE.md 存在"              test -f "$ROOT/CLAUDE.md"
+check "DECISIONS.md 存在"           test -f "$ROOT/DECISIONS.md"
+check "docs/spec.md 存在"           test -f "$ROOT/docs/spec.md"
+check "docs/MISTAKE-LOG.md 存在"    test -f "$ROOT/docs/MISTAKE-LOG.md"
+
+# --- 内容有效性（防"文件在但只有模板占位"）---
+if [ -f "$ROOT/docs/spec.md" ]; then
+    n=$(count_items "$ROOT/docs/spec.md" "明确不做")
+    if [ "$n" -ge 5 ]; then
+        echo "  ok    spec「明确不做」有 $n 条真实条目（要求 ≥5）"
+    else
+        echo "  FAIL  spec「明确不做」只有 $n 条真实条目（要求 ≥5；含尖括号的占位不算）"
+        fail=$((fail + 1))
+    fi
+fi
+
+if [ -f "$ROOT/DECISIONS.md" ]; then
+    real=$(count_decisions "$ROOT/DECISIONS.md")
+    if [ "$real" -ge 1 ]; then
+        echo "  ok    DECISIONS 有 $real 条真实决策（非占位、非代码块示例）"
+    else
+        echo "  FAIL  DECISIONS 还没有真实决策（带 < > 的占位和代码块里的示例都不算）"
+        fail=$((fail + 1))
+    fi
+fi
+
+# --- 技术栈相关（有才查，没有不报错）---
+if [ -f "$ROOT/package.json" ]; then
+    check "package.json 可解析" node -e "JSON.parse(require('fs').readFileSync('$ROOT/package.json','utf8'))"
+fi
+if [ -f "$ROOT/.gitattributes" ]; then
+    check ".gitattributes 强制 .sh 用 LF" sh -c "grep -q '\*.sh text eol=lf' '$ROOT/.gitattributes'"
+fi
+
+# --- 反向自测：验证检查函数本身有区分力 ---
+if [ "${1:-}" = "--selftest" ]; then
+    echo ""
+    echo "[selftest] 验证计数器不会被「占位符 / 代码块示例」骗到……"
+    tmp="${TMPDIR:-/tmp}/verify-selftest.$$"
+
+    # 场景 A：全是模板占位（应数 0）
+    {
+        echo '### 明确不做'
+        echo '- ❌ <不做的事> —— 因为 <原因>；推迟到 <里程碑>'
+        echo '- ❌ <不做的事> —— 因为 <原因>；推迟到 <里程碑>'
+        echo '- ❌ <不做的事> —— 因为 <原因>；推迟到 <里程碑>'
+        echo '- ❌ <不做的事> —— 因为 <原因>；推迟到 <里程碑>'
+        echo '- ❌ <不做的事> —— 因为 <原因>；推迟到 <里程碑>'
+    } > "$tmp"
+    placeholder_n=$(count_items "$tmp" "明确不做")
+
+    # 场景 B：5 条真实条目（应数 5）
+    {
+        echo '### 明确不做（至少 5 条）'
+        echo '- 不做登录 —— 自用工具，没有多用户'
+        echo '- 不做支付 —— 不涉及交易'
+        echo '- 不做导出 —— 暂时用不上'
+        echo '- 不做多语言 —— 只给自己看'
+        echo '- 不做移动端 —— 只在电脑上用'
+    } > "$tmp"
+    real_n=$(count_items "$tmp" "明确不做")
+
+    # 场景 C：示例写在代码块里（应数 0）
+    {
+        echo '```markdown'
+        echo '## D-001 示例决策（2026-01-01 用户拍板）'
+        echo '```'
+    } > "$tmp"
+    codeblock_n=$(count_decisions "$tmp")
+
+    rm -f "$tmp"
+
+    if [ "$placeholder_n" -eq 0 ] && [ "$real_n" -eq 5 ] && [ "$codeblock_n" -eq 0 ]; then
+        echo "  SELFTEST OK: 占位计 $placeholder_n（应 0）、真实计 $real_n（应 5）、代码块示例计 $codeblock_n（应 0）"
+    else
+        echo "  SELFTEST FAIL: 占位=$placeholder_n（应 0）真实=$real_n（应 5）代码块=$codeblock_n（应 0）"
+        echo "  说明检查函数仍有区分力缺陷，先修它，再信它的绿。"
+        exit 1
+    fi
+fi
+
+echo ""
+if [ "$fail" -ne 0 ]; then
+    echo "[verify] $fail 项失败。这是正常的——说明模板还没被填成你自己的项目。"
+    echo "[verify] 填完 docs/spec.md 的「明确不做」和 DECISIONS.md 的第一条决策再跑一次。"
+    exit 1
+fi
+echo "[verify] 全部通过"

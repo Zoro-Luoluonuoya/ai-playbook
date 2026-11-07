@@ -26,7 +26,7 @@ usage() {
     echo "  3. 写 DECISIONS.md（拍板即冻结的决策账本）"
     echo "  4. 写 docs/spec.md、docs/MISTAKE-LOG.md、docs/DoD-验收清单.md、docs/每日三问.md"
     echo "  5. 复制 new-project.sh 到 docs/"
-    echo "  6. 开张基线：.gitattributes + scripts/verify.sh（可用 --no-baseline 关）"
+    echo "  6. 开张基线：.gitattributes + scripts/verify.sh + .claude/rules/规则正文（可用 --no-baseline 关）"
     echo ""
     echo "已存在的文件一律跳过，不覆盖。"
 }
@@ -101,6 +101,8 @@ install_file "$TPL/new-project.sh"          "$TARGET/docs/new-project.sh"
 if [ "$WITH_BASELINE" = 1 ]; then
     install_file "$TPL/gitattributes.template" "$TARGET/.gitattributes"
     install_file "$TPL/verify.sh.template"     "$TARGET/scripts/verify.sh"
+    # 规则正文：AGENTS.md 指向 .claude/rules/，不铺这里就会"指针悬空"
+    install_file "$HERE/core/规则-30条.md"      "$TARGET/.claude/rules/通用规则-30条.md"
     if [ "$DRY" != 1 ] && [ -f "$TARGET/scripts/verify.sh" ]; then
         chmod +x "$TARGET/scripts/verify.sh" 2>/dev/null || true
     fi
